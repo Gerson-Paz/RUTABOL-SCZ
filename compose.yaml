@@ -1,0 +1,22 @@
+
+services:
+  database:
+    image: postgres:17
+    container_name: rutabol_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rutabol
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: rutabol_db
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - rutabol_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rutabol -d rutabol_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  rutabol_data:
