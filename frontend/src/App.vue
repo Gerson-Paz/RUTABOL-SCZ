@@ -1,4 +1,3 @@
-
 <script setup>
 import { ref, onMounted } from 'vue'
 
@@ -20,6 +19,9 @@ const guardandoMicro = ref(false)
 const errorMicros = ref('')
 const mensajeMicros = ref('')
 
+// id del micro que se está actualizando (null = ninguno)
+const actualizandoMicro = ref(null)
+
 const nuevoMicro = ref({
   linea: '',
   numeroInterno: '',
@@ -40,13 +42,14 @@ async function cargarMicros() {
     }
 
     micros.value = await respuesta.json()
+    return true
   } catch (e) {
     errorMicros.value = e.message
+    return false
   } finally {
     cargandoMicros.value = false
   }
 }
-
 
 async function registrarMicro() {
   errorMicros.value = ''
@@ -75,9 +78,7 @@ async function registrarMicro() {
       try {
         resultado = JSON.parse(texto)
       } catch {
-        throw new Error(
-          'El servidor devolvió una respuesta no válida.'
-        )
+        throw new Error('El servidor devolvió una respuesta no válida.')
       }
     }
 
@@ -94,13 +95,8 @@ async function registrarMicro() {
         )
       }
 
-      throw new Error(
-        resultado.mensaje ||
-        `Error HTTP ${respuesta.status}`
-      )
+      throw new Error(resultado.mensaje || `Error HTTP ${respuesta.status}`)
     }
-
-    mensajeMicros.value = 'Micro registrado correctamente.'
 
     nuevoMicro.value = {
       linea: '',
@@ -108,8 +104,10 @@ async function registrarMicro() {
       capacidadMaxima: 25
     }
 
-    await cargarMicros()
-
+    const listaActualizada = await cargarMicros()
+    mensajeMicros.value = listaActualizada
+      ? 'Micro registrado correctamente.'
+      : 'Micro registrado, pero no se pudo actualizar el listado.'
   } catch (e) {
     errorMicros.value = e.message
   } finally {
@@ -117,14 +115,67 @@ async function registrarMicro() {
   }
 }
 
+async function cambiarOcupacion(micro, cambio) {
+  errorMicros.value = ''
+  mensajeMicros.value = ''
 
+  if (actualizandoMicro.value !== null) return
+
+  actualizandoMicro.value = micro.id
+
+  try {
+    const respuesta = await fetch(`/api/micros/${micro.id}/movimiento`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        cambio: cambio
+      })
+    })
+
+    const texto = await respuesta.text()
+    let resultado = {}
+
+    if (texto) {
+      try {
+        resultado = JSON.parse(texto)
+      } catch {
+        throw new Error('Respuesta no válida del servidor.')
+      }
+    }
+
+    if (!respuesta.ok) {
+      if (respuesta.status === 401) {
+        throw new Error('Debes iniciar sesión nuevamente.')
+      }
+
+      if (respuesta.status === 403) {
+        throw new Error('No tienes permisos para modificar pasajeros.')
+      }
+
+      throw new Error(
+        resultado.mensaje ||
+        `Error HTTP ${respuesta.status}`
+      )
+    }
+
+    const listaActualizada = await cargarMicros()
+    mensajeMicros.value = listaActualizada
+      ? (resultado.mensaje || 'Ocupación actualizada.')
+      : 'Movimiento guardado, pero no se pudo actualizar el listado.'
+  } catch (e) {
+    await cargarMicros()
+    errorMicros.value = e.message
+  } finally {
+    actualizandoMicro.value = null
+  }
+}
 
 function cambiarTema() {
   oscuro.value = !oscuro.value
-  localStorage.setItem(
-    'rutabol-tema',
-    oscuro.value ? 'oscuro' : 'claro'
-  )
+  localStorage.setItem('rutabol-tema', oscuro.value ? 'oscuro' : 'claro')
 }
 
 function limpiar() {
@@ -156,9 +207,7 @@ async function solicitar(ruta, metodo = 'GET', datos = null) {
 
   if (!respuesta.ok) {
     if (resultado.errors) {
-      throw new Error(
-        Object.values(resultado.errors).flat().join(' ')
-      )
+      throw new Error(Object.values(resultado.errors).flat().join(' '))
     }
     throw new Error(resultado.mensaje || 'Error HTTP ' + respuesta.status)
   }
@@ -226,6 +275,7 @@ async function cerrarSesion() {
     await solicitar('logout', 'POST')
     usuario.value = null
     sesion.value = null
+    micros.value = []
     password.value = ''
     pantalla.value = 'login'
     mensaje.value = 'Sesión cerrada correctamente.'
@@ -502,128 +552,207 @@ onMounted(async () => {
             ↻ Actualizar sesión
           </button>
 
+          <div class="modulo-micros">
 
-<div class="modulo-micros">
+            <div class="modulo-encabezado">
+              <div>
+                <h4>🚌 Gestión de micros</h4>
+                <p>Unidades registradas en RUTABOL-SCZ</p>
+              </div>
+            </div>
 
-  <div class="modulo-encabezado">
-    <div>
-      <h4>🚌 Gestión de micros</h4>
-      <p>Unidades registradas en RUTABOL-SCZ</p>
-    </div>
-  </div>
+            <div class="estadisticas-micros">
+              <div class="estadistica-micro">
+                <span>Total de micros</span>
+                <strong>{{ micros.length }}</strong>
+              </div>
 
-  <div class="estadisticas-micros">
-    <div class="estadistica-micro">
-      <span>Total de micros</span>
-      <strong>{{ micros.length }}</strong>
-    </div>
+              <div class="estadistica-micro">
+                <span>Pasajeros registrados a bordo</span>
+                <strong>
+                  {{ micros.reduce((total, m) =>
+                    total + m.pasajerosActuales, 0) }}
+                </strong>
+              </div>
+            </div>
 
-    <div class="estadistica-micro">
-      <span>Pasajeros registrados a bordo</span>
-      <strong>
-        {{ micros.reduce((total, m) =>
-          total + m.pasajerosActuales, 0) }}
-      </strong>
-    </div>
-  </div>
+            <form
+              v-if="usuario?.rol === 'Administrador'"
+              class="formulario-micro"
+              @submit.prevent="registrarMicro"
+            >
+              <h4>Registrar nuevo micro</h4>
 
-  <form
-    v-if="usuario?.rol === 'Administrador'"
-    class="formulario-micro"
-    @submit.prevent="registrarMicro"
-  >
-    <h4>Registrar nuevo micro</h4>
+              <div class="campo">
+                <label>Línea</label>
+                <input
+                  v-model="nuevoMicro.linea"
+                  type="text"
+                  maxlength="20"
+                  placeholder="Ej. 17"
+                  required
+                />
+              </div>
 
-    <div class="campo">
-      <label>Línea</label>
-      <input
-        v-model="nuevoMicro.linea"
-        type="text"
-        maxlength="20"
-        placeholder="Ej. 17"
-        required
-      />
-    </div>
+              <div class="campo">
+                <label>Número interno</label>
+                <input
+                  v-model="nuevoMicro.numeroInterno"
+                  type="text"
+                  maxlength="20"
+                  placeholder="Ej. 101"
+                  required
+                />
+              </div>
 
-    <div class="campo">
-      <label>Número interno</label>
-      <input
-        v-model="nuevoMicro.numeroInterno"
-        type="text"
-        maxlength="20"
-        placeholder="Ej. 101"
-        required
-      />
-    </div>
+              <div class="campo">
+                <label>Capacidad máxima</label>
+                <input
+                  v-model.number="nuevoMicro.capacidadMaxima"
+                  type="number"
+                  min="18"
+                  max="25"
+                  required
+                />
+              </div>
 
-    <div class="campo">
-      <label>Capacidad máxima</label>
-      <input
-        v-model.number="nuevoMicro.capacidadMaxima"
-        type="number"
-        min="18"
-        max="25"
-        required
-      />
-    </div>
+              <button
+                type="submit"
+                class="boton-principal"
+                :disabled="guardandoMicro"
+              >
+                {{ guardandoMicro ? 'Guardando...' : 'Registrar micro' }}
+              </button>
+            </form>
 
-    <button
-      type="submit"
-      class="boton-principal"
-      :disabled="guardandoMicro"
-    >
-      {{ guardandoMicro ? 'Guardando...' : 'Registrar micro' }}
-    </button>
-  </form>
+            <div class="lista-micros">
+              <div class="lista-encabezado">
+                <h4>Unidades registradas</h4>
+                <button
+                  type="button"
+                  class="boton-actualizar"
+                  @click="cargarMicros"
+                >
+                  ↻ Actualizar
+                </button>
+              </div>
 
-  <div class="lista-micros">
-    <div class="lista-encabezado">
-      <h4>Unidades disponibles</h4>
-      <button
-        type="button"
-        class="boton-actualizar"
-        @click="cargarMicros"
-      >
-        ↻ Actualizar
-      </button>
-    </div>
+              <p v-if="cargandoMicros">Consultando unidades...</p>
 
-    <p v-if="cargandoMicros">Consultando unidades...</p>
+              <p v-else-if="!errorMicros && micros.length === 0">
+                Todavía no hay micros registrados.
+              </p>
 
-    <p v-else-if="micros.length === 0">
-      Todavía no hay micros registrados.
-    </p>
+              <div
+                v-for="micro in micros"
+                :key="micro.id"
+                class="micro-item"
+              >
+                <div class="micro-icono">🚌</div>
 
-    <div
-      v-for="micro in micros"
-      :key="micro.id"
-      class="micro-item"
-    >
-      <div class="micro-icono">🚌</div>
+                <div class="micro-informacion">
+                  <strong>Línea {{ micro.linea }}</strong>
 
-      <div class="micro-informacion">
-        <strong>Línea {{ micro.linea }}</strong>
-        <span>Interno: {{ micro.numeroInterno }}</span>
-        <span>
-          Ocupación: {{ micro.pasajerosActuales }} /
-          {{ micro.capacidadMaxima }}
-        </span>
-      </div>
+                  <span>
+                    Número interno: {{ micro.numeroInterno }}
+                  </span>
 
-      <span class="micro-estado">{{ micro.estado }}</span>
-    </div>
-  </div>
+                  <span>
+                    Capacidad: {{ micro.capacidadMaxima }} pasajeros
+                  </span>
+                </div>
 
-  <p v-if="mensajeMicros" class="mensaje">
-    {{ mensajeMicros }}
-  </p>
+                <span
+                  class="micro-estado"
+                  :class="{
+                    'estado-lleno':
+                      micro.pasajerosActuales >= micro.capacidadMaxima
+                  }"
+                >
+                  {{ micro.estado }}
+                </span>
 
-  <p v-if="errorMicros" class="error">
-    {{ errorMicros }}
-  </p>
+                <div class="ocupacion-contenedor">
 
-</div>
+                  <div class="ocupacion-titulo">
+                    <strong>Ocupación actual</strong>
 
+                    <strong>
+                      {{ micro.pasajerosActuales }} /
+                      {{ micro.capacidadMaxima }}
+                    </strong>
+                  </div>
+
+                  <div class="ocupacion-barra">
+                    <div
+                      class="ocupacion-progreso"
+                      :class="{
+                        'progreso-lleno':
+                          micro.pasajerosActuales >= micro.capacidadMaxima
+                      }"
+                      :style="{
+                        width: (
+                          micro.pasajerosActuales /
+                          micro.capacidadMaxima * 100
+                        ) + '%'
+                      }"
+                    ></div>
+                  </div>
+
+                  <p class="ocupacion-espacios">
+                    {{
+                      micro.pasajerosActuales >= micro.capacidadMaxima
+                        ? 'Micro lleno. No hay espacios disponibles.'
+                        : (micro.capacidadMaxima - micro.pasajerosActuales)
+                          + ' espacios disponibles'
+                    }}
+                  </p>
+
+                  <div
+                    v-if="
+                      usuario?.rol === 'Administrador' ||
+                      usuario?.rol === 'Conductor'
+                    "
+                    class="ocupacion-botones"
+                  >
+                    <button
+                      type="button"
+                      class="boton-subir"
+                      :disabled="
+                        actualizandoMicro !== null ||
+                        micro.pasajerosActuales >= micro.capacidadMaxima
+                      "
+                      @click="cambiarOcupacion(micro, 1)"
+                    >
+                      + Subir pasajero
+                    </button>
+
+                    <button
+                      type="button"
+                      class="boton-bajar"
+                      :disabled="
+                        actualizandoMicro !== null ||
+                        micro.pasajerosActuales <= 0
+                      "
+                      @click="cambiarOcupacion(micro, -1)"
+                    >
+                      − Bajar pasajero
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <p v-if="mensajeMicros" class="mensaje">
+              {{ mensajeMicros }}
+            </p>
+
+            <p v-if="errorMicros" class="error">
+              {{ errorMicros }}
+            </p>
+
+          </div>
 
           <button
             class="boton-salir"
@@ -1257,6 +1386,7 @@ footer {
 
 .micro-item {
   display: flex;
+  flex-wrap: wrap; /* necesario para que el bloque de ocupación pase a otra fila */
   align-items: center;
   gap: 12px;
   border: 1px solid var(--borde);
@@ -1307,4 +1437,84 @@ footer {
   }
 }
 
+/* ===== Ocupación de micros ===== */
+.ocupacion-contenedor {
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 15px;
+  border-top: 1px solid var(--borde);
+}
+
+.ocupacion-titulo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--texto);
+  font-size: 13px;
+}
+
+.ocupacion-barra {
+  width: 100%;
+  height: 12px;
+  border-radius: 20px;
+  background: var(--verde-suave);
+  overflow: hidden;
+}
+
+.ocupacion-progreso {
+  height: 100%;
+  background: var(--verde);
+  border-radius: 20px;
+  transition: width 0.3s ease;
+}
+
+.progreso-lleno {
+  background: #d46b42;
+}
+
+.ocupacion-espacios {
+  font-size: 12px;
+  color: var(--secundario);
+  margin: 10px 0 15px;
+}
+
+.ocupacion-botones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.boton-subir,
+.boton-bajar {
+  padding: 12px 8px;
+  border-radius: 9px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.boton-subir {
+  background: var(--verde);
+  color: white;
+}
+
+.boton-subir:hover:not(:disabled) {
+  background: var(--verde-hover);
+}
+
+.boton-bajar {
+  background: var(--verde-suave);
+  color: var(--verde);
+  border: 1px solid var(--borde);
+}
+
+.estado-lleno {
+  color: #d46b42;
+}
+
+.ocupacion-botones button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 </style>
