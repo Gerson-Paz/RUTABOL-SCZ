@@ -8,7 +8,7 @@ import TarifasView from './views/TarifasView.vue'
 import CategoriasView from './views/CategoriasView.vue'
 import PasajesView from './views/PasajesView.vue'
 import PerfilView from './views/PerfilView.vue'
-import AdminView from './views/AdminView.vue' 
+import AdminView from './views/AdminView.vue'
 
 const oscuro = ref(localStorage.getItem('rutabol-tema') === 'oscuro')
 const pantalla = ref('login')
