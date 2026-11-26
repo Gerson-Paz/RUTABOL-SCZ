@@ -65,6 +65,166 @@ namespace RutaBol.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RutaBol.Api.Models.Pasaje", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CategoriaAplicada")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("CodigoComprobante")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MicroId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<int>("TarifaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodigoComprobante")
+                        .IsUnique();
+
+                    b.HasIndex("MicroId");
+
+                    b.HasIndex("TarifaId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("Pasajes", t =>
+                        {
+                            t.HasCheckConstraint("CK_Pasajes_Monto", "\"Monto\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("RutaBol.Api.Models.SolicitudCategoria", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AdministradorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("CorreoInstitucional")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("FechaRevision")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaSolicitud")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TipoArchivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "Estado");
+
+                    b.ToTable("SolicitudesCategoria");
+                });
+
+            modelBuilder.Entity("RutaBol.Api.Models.Tarifa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("FechaFin")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("BOB");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("UsuarioAdministradorId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Vigente")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre", "Vigente");
+
+                    b.ToTable("Tarifas", t =>
+                        {
+                            t.HasCheckConstraint("CK_Tarifas_Monto", "\"Monto\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("RutaBol.Api.Models.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -104,6 +264,36 @@ namespace RutaBol.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("RutaBol.Api.Models.Pasaje", b =>
+                {
+                    b.HasOne("RutaBol.Api.Models.Micro", null)
+                        .WithMany()
+                        .HasForeignKey("MicroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RutaBol.Api.Models.Tarifa", null)
+                        .WithMany()
+                        .HasForeignKey("TarifaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RutaBol.Api.Models.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RutaBol.Api.Models.SolicitudCategoria", b =>
+                {
+                    b.HasOne("RutaBol.Api.Models.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
