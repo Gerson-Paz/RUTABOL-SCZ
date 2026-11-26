@@ -1,7 +1,30 @@
 <script setup>
-import { inject } from 'vue'
+import { inject, ref, computed, onMounted } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 const { oscuro, pantalla, nombre, correo, password, usuario, sesion, mensaje, error, cargando, mostrarPassword, tarifas, historialTarifas, cargandoTarifas, guardandoTarifa, mensajeTarifas, errorTarifas, mostrarHistorial, nuevaTarifa, micros, cargandoMicros, guardandoMicro, errorMicros, mensajeMicros, actualizandoMicro, nuevoMicro, solicitudNueva, fotoNueva, solicitudesMias, pendientesRevision, microsPasajeId, misPasajes, resultadoPasaje, guardandoSolicitud, procesandoPasaje, errorCategoria, avisoCategoria, errorPasaje, cargarMicros, registrarMicro, cambiarOcupacion, seleccionarFoto, cargarSolicitudes, enviarSolicitudCategoria, revisarSolicitudCategoria, cargarMisPasajes, simularPasaje, cargarTarifas, registrarTarifa, cargarHistorialTarifas, alternarHistorialTarifas, cambiarTema, limpiar, cambiarPantalla, solicitar, registrar, iniciarSesion, consultarSesion, cerrarSesion , irA } = inject('rutabol')
+
+// Solo se habilitan botones en las unidades asignadas al conductor.
+const unidadesAsignadas = ref([])
+const cargandoAsignacion = ref(false)
+const errorAsignacion = ref('')
+const esConductor = computed(() => usuario.value?.rol === 'Conductor')
+const idsAsignados = computed(() => new Set(unidadesAsignadas.value.map(x => Number(x.id))))
+function puedeOperarMicro(id) {
+  return usuario.value?.rol === 'Administrador' || (esConductor.value && idsAsignados.value.has(Number(id)))
+}
+async function cargarUnidadesAsignadas() {
+  if (!esConductor.value) return
+  cargandoAsignacion.value = true
+  errorAsignacion.value = ''
+  try {
+    const r = await fetch('/api/ubicaciones/mis-unidades', { credentials: 'include' })
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(data.mensaje || 'No se pudieron consultar tus unidades asignadas.')
+    unidadesAsignadas.value = data
+  } catch (e) { errorAsignacion.value = e.message }
+  finally { cargandoAsignacion.value = false }
+}
+onMounted(cargarUnidadesAsignadas)
 </script>
 <template>
           <div class="modulo-micros">
@@ -77,6 +100,14 @@ const { oscuro, pantalla, nombre, correo, password, usuario, sesion, mensaje, er
               </button>
             </form>
 
+            <div v-if="esConductor" class="modulo-encabezado" style="margin:14px 0">
+              <div><strong>Mi unidad asignada</strong>
+                <p v-if="cargandoAsignacion">Cargando asignaciones...</p>
+                <p v-else-if="errorAsignacion" class="error">{{ errorAsignacion }}</p>
+                <p v-else-if="!unidadesAsignadas.length">Todavía no tienes una unidad asignada. El administrador debe asignarte una línea y un interno.</p>
+                <p v-else>Tu unidad es Línea {{ unidadesAsignadas[0]?.linea }} · Interno {{ unidadesAsignadas[0]?.numeroInterno }}. Solo puedes operar esa unidad.</p>
+              </div><button type="button" class="boton-actualizar" @click="cargarUnidadesAsignadas">Actualizar asignaciones</button>
+            </div>
             <div class="lista-micros">
               <div class="lista-encabezado">
                 <h4>Unidades registradas</h4>
@@ -162,8 +193,7 @@ const { oscuro, pantalla, nombre, correo, password, usuario, sesion, mensaje, er
 
                   <div
                     v-if="
-                      usuario?.rol === 'Administrador' ||
-                      usuario?.rol === 'Conductor'
+                      puedeOperarMicro(micro.id)
                     "
                     class="ocupacion-botones"
                   >

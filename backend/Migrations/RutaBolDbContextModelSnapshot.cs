@@ -22,6 +22,35 @@ namespace RutaBol.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("RutaBol.Api.Models.LineaTransporte", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("Lineas");
+                });
+
             modelBuilder.Entity("RutaBol.Api.Models.Micro", b =>
                 {
                     b.Property<int>("Id")
@@ -29,6 +58,11 @@ namespace RutaBol.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("CapacidadMaxima")
                         .HasColumnType("integer");
@@ -41,10 +75,16 @@ namespace RutaBol.Api.Migrations
                     b.Property<DateTime>("FechaRegistro")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("FechaRetiro")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Linea")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("LineaId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("NumeroInterno")
                         .IsRequired()
@@ -55,6 +95,8 @@ namespace RutaBol.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LineaId");
 
                     b.HasIndex("Linea", "NumeroInterno")
                         .IsUnique();
@@ -225,6 +267,33 @@ namespace RutaBol.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RutaBol.Api.Models.UbicacionMicro", b =>
+                {
+                    b.Property<int>("MicroId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ActualizadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ConductorUsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Latitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("PrecisionMetros")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("MicroId");
+
+                    b.HasIndex("ConductorUsuarioId");
+
+                    b.ToTable("UbicacionesMicro");
+                });
+
             modelBuilder.Entity("RutaBol.Api.Models.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -266,6 +335,14 @@ namespace RutaBol.Api.Migrations
                     b.ToTable("Usuarios");
                 });
 
+            modelBuilder.Entity("RutaBol.Api.Models.Micro", b =>
+                {
+                    b.HasOne("RutaBol.Api.Models.LineaTransporte", null)
+                        .WithMany()
+                        .HasForeignKey("LineaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("RutaBol.Api.Models.Pasaje", b =>
                 {
                     b.HasOne("RutaBol.Api.Models.Micro", null)
@@ -293,6 +370,20 @@ namespace RutaBol.Api.Migrations
                         .WithMany()
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RutaBol.Api.Models.UbicacionMicro", b =>
+                {
+                    b.HasOne("RutaBol.Api.Models.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("ConductorUsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RutaBol.Api.Models.Micro", null)
+                        .WithOne()
+                        .HasForeignKey("RutaBol.Api.Models.UbicacionMicro", "MicroId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

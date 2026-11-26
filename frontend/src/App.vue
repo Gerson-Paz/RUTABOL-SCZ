@@ -9,6 +9,9 @@ import CategoriasView from './views/CategoriasView.vue'
 import PasajesView from './views/PasajesView.vue'
 import PerfilView from './views/PerfilView.vue'
 import AdminView from './views/AdminView.vue'
+import LineasView from './views/LineasView.vue'
+import UbicacionesView from './views/UbicacionesView.vue'
+import ConductorView from './views/ConductorView.vue'
 
 const oscuro = ref(localStorage.getItem('rutabol-tema') === 'oscuro')
 const pantalla = ref('login')
@@ -558,7 +561,7 @@ onMounted(async () => {
 })
 
 // Cambiamos de seccion sin perder los formularios ni los datos
-const secciones = ['inicio', 'micros', 'tarifas', 'categorias', 'pasajes', 'perfil', 'admin']
+const secciones = ['inicio', 'micros', 'tarifas', 'categorias', 'pasajes', 'perfil', 'admin', 'lineas', 'ubicaciones', 'conductor']
 function seccionDesdeUrl() {
   const ruta = window.location.hash.replace(/^#\/?/, '').split('/')[0]
   return secciones.includes(ruta) ? ruta : 'inicio'
@@ -568,7 +571,8 @@ function actualizarSeccion() {
   seccionActual.value = seccionDesdeUrl()
 }
 const vistaActual = computed(() => {
-  if (seccionActual.value === 'admin' && usuario.value?.rol !== 'Administrador') return 'inicio'
+  if (['admin', 'lineas'].includes(seccionActual.value) && usuario.value?.rol !== 'Administrador') return 'inicio'
+  if (seccionActual.value === 'conductor' && usuario.value?.rol !== 'Conductor') return 'inicio'
   return seccionActual.value
 })
 function irA(seccion) {
@@ -643,7 +647,7 @@ provide('rutabol', {
 onMounted(() => window.addEventListener('hashchange', actualizarSeccion))
 onUnmounted(() => window.removeEventListener('hashchange', actualizarSeccion))
 
-const titulos = {inicio:'Inicio',micros:'Micros y líneas',tarifas:'Tarifas',categorias:'Categorías',pasajes:'Pasajes',perfil:'Mi perfil',admin:'Administración'}
+const titulos = {inicio:'Inicio',micros:'Micros y líneas',tarifas:'Tarifas',categorias:'Categorías',pasajes:'Pasajes',perfil:'Mi perfil',admin:'Administración',lineas:'Líneas e internos',ubicaciones:'Micros cercanos',conductor:'Mi unidad'}
 const menuAbierto = ref(false)
 function alNavegar(destino) { irA(destino); menuAbierto.value = false }
 </script>
@@ -790,6 +794,9 @@ function alNavegar(destino) { irA(destino); menuAbierto.value = false }
           <PasajesView v-else-if="vistaActual==='pasajes'" />
           <PerfilView v-else-if="vistaActual==='perfil'" />
           <AdminView v-else-if="vistaActual==='admin'" />
+          <LineasView v-else-if="vistaActual==='lineas'" @actualizar-micros="cargarMicros" />
+          <UbicacionesView v-else-if="vistaActual==='ubicaciones'" />
+          <ConductorView v-else-if="vistaActual==='conductor'" />
           <p v-if="mensaje" class="mensaje message-global">{{mensaje}}</p><p v-if="error" class="error message-global">{{error}}</p>
         </main>
         <footer class="dashboard-footer">RUTABOL-SCZ · Proyecto académico — Tecnología Web I · UPDS</footer>

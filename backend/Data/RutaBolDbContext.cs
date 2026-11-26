@@ -10,6 +10,8 @@ public class RutaBolDbContext : DbContext
     // Estas son nuestras tablas
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Micro> Micros => Set<Micro>();
+    public DbSet<LineaTransporte> Lineas => Set<LineaTransporte>();
+    public DbSet<UbicacionMicro> UbicacionesMicro => Set<UbicacionMicro>();
     public DbSet<Tarifa> Tarifas => Set<Tarifa>();
     public DbSet<SolicitudCategoria> SolicitudesCategoria => Set<SolicitudCategoria>();
     public DbSet<Pasaje> Pasajes => Set<Pasaje>();
@@ -28,15 +30,37 @@ public class RutaBolDbContext : DbContext
             entity.Property(u => u.Rol).HasMaxLength(30);
         });
 
+        modelBuilder.Entity<LineaTransporte>(entity =>
+        {
+            entity.HasKey(l => l.Id);
+            entity.Property(l => l.Codigo).IsRequired().HasMaxLength(20);
+            entity.HasIndex(l => l.Codigo).IsUnique();
+            entity.Property(l => l.Activa).HasDefaultValue(true);
+        });
+
         modelBuilder.Entity<Micro>(entity =>
         {
             entity.HasKey(m => m.Id);
             entity.Property(m => m.Linea).IsRequired().HasMaxLength(20);
             entity.Property(m => m.NumeroInterno).IsRequired().HasMaxLength(20);
             entity.Property(m => m.Estado).HasMaxLength(30);
+            entity.Property(m => m.Activo).HasDefaultValue(true);
+            entity.HasOne<LineaTransporte>().WithMany().HasForeignKey(m => m.LineaId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(m => new { m.Linea, m.NumeroInterno }).IsUnique();
             entity.ToTable(t => t.HasCheckConstraint("CK_Micros_Capacidad",
                 "\"CapacidadMaxima\" > 0 AND \"PasajerosActuales\" >= 0 AND \"PasajerosActuales\" <= \"CapacidadMaxima\""));
+        });
+
+        // GPS de los micros. La relación conserva el historial del micro.
+        modelBuilder.Entity<UbicacionMicro>(entity =>
+        {
+            entity.HasKey(u => u.MicroId);
+            entity.HasOne<Micro>().WithOne().HasForeignKey<UbicacionMicro>(u => u.MicroId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Usuario>().WithMany().HasForeignKey(u => u.ConductorUsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(u => u.ConductorUsuarioId);
         });
 
         modelBuilder.Entity<Tarifa>(entity =>
